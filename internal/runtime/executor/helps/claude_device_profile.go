@@ -152,6 +152,24 @@ func defaultClaudeDeviceProfile(cfg *config.Config) ClaudeDeviceProfile {
 	return profile
 }
 
+func claudeCloakDeviceProfile(cfg *config.Config, model string) ClaudeDeviceProfile {
+	profile := defaultClaudeDeviceProfile(cfg)
+	native, ok := claudeNativeSoftwareProfileForCloakModel(model)
+	if !ok {
+		return profile
+	}
+	nativeVersion, ok := parseClaudeCLIVersion(native.UserAgent)
+	if !ok || (profile.hasVersion && profile.version.Compare(nativeVersion) >= 0) {
+		return profile
+	}
+	profile.UserAgent = native.UserAgent
+	profile.PackageVersion = native.PackageVersion
+	profile.RuntimeVersion = native.RuntimeVersion
+	profile.version = nativeVersion
+	profile.hasVersion = true
+	return profile
+}
+
 // mapStainlessOS maps runtime.GOOS to Stainless SDK OS names.
 func mapStainlessOS() string {
 	switch runtime.GOOS {
@@ -586,22 +604,49 @@ func ApplyClaudeDeviceProfileHeaders(r *http.Request, profile ClaudeDeviceProfil
 // DefaultClaudeVersion returns the version string (e.g. "2.1.220") from the
 // current baseline device profile. It extracts the version from the User-Agent.
 func DefaultClaudeVersion(cfg *config.Config) string {
-	profile := defaultClaudeDeviceProfile(cfg)
+	return claudeDeviceProfileVersion(defaultClaudeDeviceProfile(cfg), "2.1.220")
+}
+
+// ClaudeCloakVersionForModel returns the software version used to cloak one model.
+func ClaudeCloakVersionForModel(cfg *config.Config, model string) string {
+	return claudeDeviceProfileVersion(claudeCloakDeviceProfile(cfg, model), DefaultClaudeVersion(cfg))
+}
+
+// ClaudeCloakEntrypointForModel returns the native entrypoint used to cloak one model.
+func ClaudeCloakEntrypointForModel(cfg *config.Config, model string) string {
+	entrypoint, _ := parseClaudeCodeUserAgentDetails(claudeCloakDeviceProfile(cfg, model).UserAgent)
+	if entrypoint == "" {
+		return "cli"
+	}
+	return entrypoint
+}
+
+func claudeDeviceProfileVersion(profile ClaudeDeviceProfile, fallback string) string {
 	if version, ok := parseClaudeCLIVersion(profile.UserAgent); ok {
 		return strconv.Itoa(version.major) + "." + strconv.Itoa(version.minor) + "." + strconv.Itoa(version.patch)
 	}
-	return "2.1.220"
+	return fallback
 }
 
 func ApplyClaudeDefaultDeviceProfileHeaders(r *http.Request, cfg *config.Config) {
 	ApplyClaudeDeviceProfileHeaders(r, defaultClaudeDeviceProfile(cfg))
 }
 
+// ApplyClaudeCloakDeviceProfileHeaders applies the software profile selected for one model.
+func ApplyClaudeCloakDeviceProfileHeaders(r *http.Request, cfg *config.Config, model string) {
+	ApplyClaudeDeviceProfileHeaders(r, claudeCloakDeviceProfile(cfg, model))
+}
+
 func ApplyClaudeLegacyDeviceHeaders(r *http.Request, ginHeaders http.Header, cfg *config.Config, confirmedClaudeCode bool) {
+	ApplyClaudeLegacyDeviceHeadersForModel(r, ginHeaders, cfg, confirmedClaudeCode, "")
+}
+
+// ApplyClaudeLegacyDeviceHeadersForModel applies legacy header rules with a model-aware cloak profile.
+func ApplyClaudeLegacyDeviceHeadersForModel(r *http.Request, ginHeaders http.Header, cfg *config.Config, confirmedClaudeCode bool, model string) {
 	if r == nil {
 		return
 	}
-	profile := defaultClaudeDeviceProfile(cfg)
+	profile := claudeCloakDeviceProfile(cfg, model)
 	miscEnsure := func(name, fallback string, valid func(string) bool) {
 		if current := strings.TrimSpace(r.Header.Get(name)); current != "" && (valid == nil || valid(current)) {
 			return

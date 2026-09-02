@@ -9,6 +9,7 @@ type claudeNativeSoftwareProfile struct {
 	UserAgent      string
 	PackageVersion string
 	RuntimeVersion string
+	cloakModels    []string
 }
 
 var forkClaudeNativeSoftwareProfiles = []claudeNativeSoftwareProfile{
@@ -16,7 +17,23 @@ var forkClaudeNativeSoftwareProfiles = []claudeNativeSoftwareProfile{
 		UserAgent:      "claude-cli/2.1.258 (external, sdk-cli)",
 		PackageVersion: "0.112.1",
 		RuntimeVersion: "v26.3.0",
+		cloakModels:    []string{"claude-fable-5-1"},
 	},
+}
+
+func claudeNativeSoftwareProfileForCloakModel(model string) (claudeNativeSoftwareProfile, bool) {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if suffix := strings.LastIndex(model, "("); suffix >= 0 && strings.HasSuffix(model, ")") {
+		model = strings.TrimSpace(model[:suffix])
+	}
+	for _, profile := range forkClaudeNativeSoftwareProfiles {
+		for _, candidate := range profile.cloakModels {
+			if model == candidate {
+				return profile, true
+			}
+		}
+	}
+	return claudeNativeSoftwareProfile{}, false
 }
 
 func matchClaudeNativeSoftwareProfile(headers http.Header) (claudeNativeSoftwareProfile, bool) {

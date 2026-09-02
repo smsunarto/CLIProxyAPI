@@ -104,7 +104,7 @@ var claudeCodeTrailingBetas = []string{
 //
 // An empty body keeps the optimistic role=system default, matching the cloaking
 // policy for unknown and future model IDs.
-func claudeCodeCLIBetas(body []byte, requested map[string]bool, oauthToken bool) string {
+func claudeCodeCLIBetas(body []byte, requested map[string]bool, oauthToken bool, entrypoints ...string) string {
 	betas := make([]string, 0, len(claudeCodeCLIConstantBetas)+len(claudeCodeTrailingBetas)+7)
 	betas = append(betas, claudeCodeBeta)
 	if oauthToken {
@@ -113,7 +113,11 @@ func claudeCodeCLIBetas(body []byte, requested map[string]bool, oauthToken bool)
 	if requested[claudeContext1MBeta] {
 		betas = append(betas, claudeContext1MBeta)
 	}
-	redactThinking := !claudeThinkingDisplaySet(body)
+	entrypoint := "cli"
+	if len(entrypoints) > 0 && strings.TrimSpace(entrypoints[0]) != "" {
+		entrypoint = strings.TrimSpace(entrypoints[0])
+	}
+	redactThinking := entrypoint == "cli" && !claudeThinkingDisplaySet(body)
 	for _, beta := range claudeCodeCLIConstantBetas {
 		if beta == claudeRedactThinkingBeta && !redactThinking {
 			continue
@@ -775,6 +779,7 @@ func applyClaudeHeadersWithNativeProfile(
 		}
 	}
 	stabilizeDeviceProfile := helps.ClaudeDeviceProfileStabilizationEnabled(cfg)
+	model := gjson.GetBytes(body, "model").String()
 	passThroughNativeSoftware := confirmedClaudeCode && helps.IsClaudeNativeSoftwareProfile(incomingHeaders)
 	var deviceProfile helps.ClaudeDeviceProfile
 	if stabilizeDeviceProfile && confirmedClaudeCode && !passThroughNativeSoftware {
@@ -792,7 +797,7 @@ func applyClaudeHeadersWithNativeProfile(
 
 	baseBetas := incomingBetas
 	if !preserveCallerFingerprint {
-		baseBetas = claudeCodeCLIBetas(body, requestedMap, useOAuthBetas)
+		baseBetas = claudeCodeCLIBetas(body, requestedMap, useOAuthBetas, helps.ClaudeCloakEntrypointForModel(cfg, model))
 		if countTokens {
 			baseBetas = claudeCountTokensBetasForCredential(useOAuthBetas)
 			if advisorNeeded {
@@ -1018,10 +1023,10 @@ func applyClaudeHeadersWithNativeProfile(
 		if confirmedClaudeCode {
 			helps.ApplyClaudeDeviceProfileHeaders(r, deviceProfile)
 		} else {
-			helps.ApplyClaudeDefaultDeviceProfileHeaders(r, cfg)
+			helps.ApplyClaudeCloakDeviceProfileHeaders(r, cfg, model)
 		}
 	} else {
-		helps.ApplyClaudeLegacyDeviceHeaders(r, incomingHeaders, cfg, confirmedClaudeCode)
+		helps.ApplyClaudeLegacyDeviceHeadersForModel(r, incomingHeaders, cfg, confirmedClaudeCode, model)
 	}
 	var attrs map[string]string
 	if auth != nil {

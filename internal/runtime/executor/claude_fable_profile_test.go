@@ -1,12 +1,15 @@
 package executor
 
 import (
+	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/runtime/executor/helps"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
+	"github.com/tidwall/gjson"
 )
 
 func TestApplyClaudeHeadersPassesMeasuredFable51ProfileWithoutStabilizing(t *testing.T) {
@@ -60,13 +63,13 @@ func TestApplyClaudeHeadersPassesMeasuredFable51ProfileWithoutStabilizing(t *tes
 		t.Fatalf("stored native profile candidates = %d, want 0", storedCandidates)
 	}
 
-	unconfirmed := newClaudeHeaderTestRequest(t, nil)
+	fableCloak := newClaudeHeaderTestRequest(t, nil)
 	baselineAuth := &cliproxyauth.Auth{
 		ID:         auth.ID,
 		Attributes: map[string]string{"cloak_mode": "always"},
 	}
 	err = applyClaudeHeadersWithNativeProfile(
-		unconfirmed,
+		fableCloak,
 		baselineAuth,
 		"fable-profile-key",
 		false,
@@ -81,8 +84,46 @@ func TestApplyClaudeHeadersPassesMeasuredFable51ProfileWithoutStabilizing(t *tes
 	if err != nil {
 		t.Fatalf("applyClaudeHeadersWithNativeProfile() unconfirmed error = %v", err)
 	}
-	assertClaudeFingerprint(t, unconfirmed.Header, "claude-cli/2.1.220 (external, cli)", "0.94.0", "v26.3.0", "MacOS", "arm64")
+	assertClaudeFingerprint(t, fableCloak.Header, "claude-cli/2.1.258 (external, sdk-cli)", "0.112.1", "v26.3.0", "MacOS", "arm64")
+
+	legacyCloak := newClaudeHeaderTestRequest(t, nil)
+	err = applyClaudeHeadersWithNativeProfile(
+		legacyCloak,
+		baselineAuth,
+		"fable-profile-key",
+		false,
+		nil,
+		[]byte(`{"model":"claude-sonnet-4-6"}`),
+		cfg,
+		nil,
+		false,
+		false,
+		"11111111-2222-4333-8444-555555555555",
+	)
+	if err != nil {
+		t.Fatalf("applyClaudeHeadersWithNativeProfile() legacy cloak error = %v", err)
+	}
+	assertClaudeFingerprint(t, legacyCloak.Header, "claude-cli/2.1.220 (external, cli)", "0.94.0", "v26.3.0", "MacOS", "arm64")
 	if storedCandidates != 0 {
 		t.Fatalf("stored native profile candidates after unconfirmed request = %d, want 0", storedCandidates)
+	}
+}
+
+func TestApplyCloakingUsesSupportedFable51Version(t *testing.T) {
+	payload := []byte(`{"model":"claude-fable-5-1","messages":[{"role":"user","content":"hello"}]}`)
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"cloak_mode": "always"}}
+
+	out, cloaked, err := applyCloaking(context.Background(), nil, auth, payload, "sk-ant-oat-fable", false, true)
+	if err != nil {
+		t.Fatalf("applyCloaking() error = %v", err)
+	}
+	if !cloaked {
+		t.Fatal("applyCloaking() cloaked = false, want true")
+	}
+	billing := gjson.GetBytes(out, "system.0.text").String()
+	for _, want := range []string{"cc_version=2.1.258.", "cc_entrypoint=sdk-cli"} {
+		if !strings.Contains(billing, want) {
+			t.Fatalf("billing header = %q, want %q", billing, want)
+		}
 	}
 }

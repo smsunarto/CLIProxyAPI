@@ -191,9 +191,13 @@ func claudeBillingFingerprintMessageText(payload []byte) string {
 }
 
 func claudeCCHFallbackBillingHeader(ctx context.Context, cfg *config.Config, payload []byte, entrypoint string) string {
+	model := gjson.GetBytes(payload, "model").String()
+	if cloakEntrypoint := helps.ClaudeCloakEntrypointForModel(cfg, model); cloakEntrypoint != "cli" {
+		entrypoint = cloakEntrypoint
+	}
 	return generateBillingHeader(
 		true,
-		helps.DefaultClaudeVersion(cfg),
+		helps.ClaudeCloakVersionForModel(cfg, model),
 		claudeBillingFingerprintMessageText(payload),
 		entrypoint,
 		getWorkloadFromContext(ctx),
@@ -1024,9 +1028,11 @@ func applyCloaking(
 		}
 	}
 
-	billingVersion := helps.DefaultClaudeVersion(cfg)
+	model := gjson.GetBytes(payload, "model").String()
+	billingVersion := helps.ClaudeCloakVersionForModel(cfg, model)
+	cloakEntrypoint := helps.ClaudeCloakEntrypointForModel(cfg, model)
 	workload := getWorkloadFromContext(ctx)
-	payload = checkSystemInstructionsWithSigningModeAt(payload, settings.strictMode, cchSigning, billingVersion, "cli", workload, claudeCodeCurrentTime(cfg, auth))
+	payload = checkSystemInstructionsWithSigningModeAt(payload, settings.strictMode, cchSigning, billingVersion, cloakEntrypoint, workload, claudeCodeCurrentTime(cfg, auth))
 
 	// Claude-Code-CLI fingerprint identity (real OAuth or fingerprint-profile=claude-code-cli)
 	// is applied later through the shared ApplyClaudeCredentialMetadata path.
