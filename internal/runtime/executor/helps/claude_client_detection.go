@@ -132,9 +132,10 @@ func DetectClaudeCodeRequest(headers http.Header, payload []byte, countTokens bo
 	}
 	userAgent := headerValue(headers, "User-Agent")
 	entrypoint, agentSDKVersion := parseClaudeCodeUserAgentDetails(userAgent)
+	measuredNativeProfile := IsClaudeNativeSoftwareProfile(headers)
 	detection := ClaudeCodeRequestDetection{
 		XAppCLI:         headerValue(headers, "X-App") == "cli",
-		UserAgent:       plausibleClaudeCodeUserAgent(userAgent, cfg),
+		UserAgent:       plausibleClaudeCodeUserAgent(userAgent, cfg) || measuredNativeProfile,
 		BetasPresent:    headerContainsClaudeCodeBeta(headers),
 		Entrypoint:      entrypoint,
 		Subclient:       claudeCodeSubclientByEntrypoint[entrypoint],

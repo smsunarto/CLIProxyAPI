@@ -174,17 +174,13 @@ func fetchModelsFromRemote(ctx context.Context) (*staticModelsJSON, string) {
 			continue
 		}
 
-		var parsed staticModelsJSON
-		if err := json.Unmarshal(data, &parsed); err != nil {
+		parsed, err := decodeModelsCatalog(data, url)
+		if err != nil {
 			log.Warnf("models parse failed from %s: %v", url, err)
 			continue
 		}
-		if err := validateModelsCatalog(&parsed); err != nil {
-			log.Warnf("models validate failed from %s: %v", url, err)
-			continue
-		}
 
-		return &parsed, url
+		return parsed, url
 	}
 	return nil, ""
 }
@@ -296,18 +292,27 @@ func mergeProviderNames(existing, incoming []string) []string {
 }
 
 func loadModelsFromBytes(data []byte, source string) error {
-	var parsed staticModelsJSON
-	if err := json.Unmarshal(data, &parsed); err != nil {
-		return fmt.Errorf("%s: decode models catalog: %w", source, err)
-	}
-	if err := validateModelsCatalog(&parsed); err != nil {
-		return fmt.Errorf("%s: validate models catalog: %w", source, err)
+	parsed, err := decodeModelsCatalog(data, source)
+	if err != nil {
+		return err
 	}
 
 	modelsCatalogStore.mu.Lock()
-	modelsCatalogStore.data = &parsed
+	modelsCatalogStore.data = parsed
 	modelsCatalogStore.mu.Unlock()
 	return nil
+}
+
+func decodeModelsCatalog(data []byte, source string) (*staticModelsJSON, error) {
+	var parsed staticModelsJSON
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return nil, fmt.Errorf("%s: decode models catalog: %w", source, err)
+	}
+	applyForkModelOverlay(&parsed)
+	if err := validateModelsCatalog(&parsed); err != nil {
+		return nil, fmt.Errorf("%s: validate models catalog: %w", source, err)
+	}
+	return &parsed, nil
 }
 
 func getModels() *staticModelsJSON {

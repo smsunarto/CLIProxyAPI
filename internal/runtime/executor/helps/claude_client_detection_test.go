@@ -110,24 +110,57 @@ func TestDetectClaudeCodeRequestAcceptsMeasuredFable51Client(t *testing.T) {
 		t.Fatalf("detection = %#v, want measured Claude 2.1.258 sdk-cli confirmed", detection)
 	}
 
-	for name, mutate := range map[string]func(http.Header){
-		"entrypoint": func(candidate http.Header) {
+	for _, test := range []struct {
+		name   string
+		mutate func(http.Header)
+	}{
+		{name: "CLI entrypoint", mutate: func(candidate http.Header) {
 			candidate.Set("User-Agent", "claude-cli/2.1.258 (external, cli)")
-		},
-		"package": func(candidate http.Header) {
+		}},
+		{name: "VS Code entrypoint", mutate: func(candidate http.Header) {
+			candidate.Set("User-Agent", "claude-cli/2.1.258 (external, claude-vscode)")
+		}},
+		{name: "altered package", mutate: func(candidate http.Header) {
 			candidate.Set("X-Stainless-Package-Version", "0.112.0")
-		},
-		"runtime": func(candidate http.Header) {
+		}},
+		{name: "altered runtime", mutate: func(candidate http.Header) {
 			candidate.Set("X-Stainless-Runtime-Version", "v26.2.0")
-		},
+		}},
+		{name: "User-Agent whitespace", mutate: func(candidate http.Header) {
+			candidate.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli) ")
+		}},
+		{name: "duplicate package", mutate: func(candidate http.Header) {
+			candidate.Add("X-Stainless-Package-Version", "0.112.1")
+		}},
+		{name: "missing User-Agent", mutate: func(candidate http.Header) {
+			candidate.Del("User-Agent")
+		}},
+		{name: "missing package", mutate: func(candidate http.Header) {
+			candidate.Del("X-Stainless-Package-Version")
+		}},
+		{name: "missing runtime", mutate: func(candidate http.Header) {
+			candidate.Del("X-Stainless-Runtime-Version")
+		}},
 	} {
-		t.Run("rejects "+name+" near miss", func(t *testing.T) {
+		t.Run("rejects "+test.name+" near miss", func(t *testing.T) {
 			candidate := headers.Clone()
-			mutate(candidate)
+			test.mutate(candidate)
 			if detection := DetectClaudeCodeRequest(candidate, payload, false); detection.Confirmed {
 				t.Fatalf("detection = %#v, want unmeasured tuple rejected", detection)
 			}
 		})
+	}
+}
+
+func TestDetectClaudeCodeRequestDoesNotWidenHelperProfileForFable51Client(t *testing.T) {
+	headers := measuredClaudeCodeHelperHeaders(claudeCodeHelperBetaProfile(true), false)
+	headers.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli)")
+	headers.Set("X-Stainless-Package-Version", "0.112.1")
+	headers.Set("X-Stainless-Runtime-Version", "v26.3.0")
+
+	detection := DetectClaudeCodeRequest(headers, measuredClaudeCodeMinimalHelperPayload(), false)
+	if detection.Confirmed || detection.HelperProfile {
+		t.Fatalf("detection = %#v, want 2.1.258 excluded from the 2.1.220 helper exception", detection)
 	}
 }
 

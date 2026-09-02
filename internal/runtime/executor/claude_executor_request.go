@@ -775,8 +775,9 @@ func applyClaudeHeadersWithNativeProfile(
 		}
 	}
 	stabilizeDeviceProfile := helps.ClaudeDeviceProfileStabilizationEnabled(cfg)
+	passThroughNativeSoftware := confirmedClaudeCode && helps.IsClaudeNativeSoftwareProfile(incomingHeaders)
 	var deviceProfile helps.ClaudeDeviceProfile
-	if stabilizeDeviceProfile && confirmedClaudeCode {
+	if stabilizeDeviceProfile && confirmedClaudeCode && !passThroughNativeSoftware {
 		var errDeviceProfile error
 		deviceProfile, errDeviceProfile = helps.ResolveClaudeDeviceProfileRequired(r.Context(), auth, apiKey, incomingHeaders, cfg)
 		if errDeviceProfile != nil {
@@ -1011,7 +1012,9 @@ func applyClaudeHeadersWithNativeProfile(
 	// Confirmed Claude Code requests may contribute their real software profile.
 	// Unconfirmed clients always receive the CLI baseline instead of being
 	// allowed to populate or reuse another client's software profile.
-	if stabilizeDeviceProfile {
+	if passThroughNativeSoftware {
+		helps.ApplyClaudeLegacyDeviceHeaders(r, incomingHeaders, cfg, true)
+	} else if stabilizeDeviceProfile {
 		if confirmedClaudeCode {
 			helps.ApplyClaudeDeviceProfileHeaders(r, deviceProfile)
 		} else {
@@ -1034,6 +1037,9 @@ func applyClaudeHeadersWithNativeProfile(
 	if isAnthropicBase {
 		r.Header.Set("Anthropic-Beta", baseBetas)
 		applyTransportNegotiation()
+		if passThroughNativeSoftware {
+			helps.ApplyClaudeNativeSoftwareProfileHeaders(r, incomingHeaders)
+		}
 	} else if stream {
 		// Elsewhere only streaming is protected, so an Accept override cannot
 		// silently disable event negotiation.

@@ -614,6 +614,11 @@ func ApplyClaudeLegacyDeviceHeaders(r *http.Request, ginHeaders http.Header, cfg
 	}
 
 	if confirmedClaudeCode {
+		if ApplyClaudeNativeSoftwareProfileHeaders(r, ginHeaders) {
+			miscEnsure("X-Stainless-Os", mapStainlessOS(), nil)
+			miscEnsure("X-Stainless-Arch", mapStainlessArch(), nil)
+			return
+		}
 		miscEnsure("X-Stainless-Runtime-Version", profile.RuntimeVersion, func(value string) bool { return value == profile.RuntimeVersion })
 		miscEnsure("X-Stainless-Package-Version", profile.PackageVersion, func(value string) bool { return value == profile.PackageVersion })
 		miscEnsure("X-Stainless-Os", mapStainlessOS(), nil)
