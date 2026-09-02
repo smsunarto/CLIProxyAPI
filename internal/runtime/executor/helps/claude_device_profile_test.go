@@ -179,6 +179,28 @@ func TestApplyClaudeLegacyDeviceHeadersAcceptsConfiguredMeasuredBaseline(t *test
 	}
 }
 
+func TestApplyClaudeLegacyDeviceHeadersPreservesMeasuredFable51Client(t *testing.T) {
+	request, errRequest := http.NewRequest(http.MethodPost, "https://api.anthropic.com/v1/messages", nil)
+	if errRequest != nil {
+		t.Fatal(errRequest)
+	}
+	incoming := claudeDeviceHeaders("claude-cli/2.1.258 (external, sdk-cli)")
+	incoming.Set("X-Stainless-Package-Version", "0.112.1")
+	incoming.Set("X-Stainless-Runtime-Version", "v26.3.0")
+
+	ApplyClaudeLegacyDeviceHeaders(request, incoming, nil, true)
+
+	for name, want := range map[string]string{
+		"User-Agent":                  "claude-cli/2.1.258 (external, sdk-cli)",
+		"X-Stainless-Package-Version": "0.112.1",
+		"X-Stainless-Runtime-Version": "v26.3.0",
+	} {
+		if got := request.Header.Get(name); got != want {
+			t.Fatalf("%s = %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestResolveClaudeDeviceProfileRequiredHomeReadWithoutCandidate(t *testing.T) {
 	client := newFakeClaudeDeviceProfileKVClient()
 	auth := &cliproxyauth.Auth{ID: "auth-1"}

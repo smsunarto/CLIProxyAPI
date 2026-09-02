@@ -196,3 +196,31 @@ func TestLookupModelInfoIncludesClaudeSonnet5(t *testing.T) {
 		}
 	}
 }
+
+func TestLookupModelInfoIncludesClaudeFable51(t *testing.T) {
+	model := LookupModelInfo("claude-fable-5-1")
+	if model == nil {
+		t.Fatal("expected Claude Fable 5.1 static model")
+	}
+	if model.Type != "claude" {
+		t.Fatalf("Claude Fable 5.1 type = %q, want claude", model.Type)
+	}
+	if model.ContextLength != 1_000_000 {
+		t.Fatalf("Claude Fable 5.1 context length = %d, want 1000000", model.ContextLength)
+	}
+	if model.MaxCompletionTokens != 128_000 {
+		t.Fatalf("Claude Fable 5.1 max completion tokens = %d, want 128000", model.MaxCompletionTokens)
+	}
+	if model.Thinking == nil || model.Thinking.ZeroAllowed || !model.Thinking.DynamicAllowed || model.Thinking.Min != 0 || model.Thinking.Max != 0 {
+		t.Fatalf("expected Claude Fable 5.1 adaptive-only thinking, got %+v", model.Thinking)
+	}
+	expectedLevels := []string{"low", "medium", "high", "xhigh", "max"}
+	if len(model.Thinking.Levels) != len(expectedLevels) {
+		t.Fatalf("Claude Fable 5.1 thinking levels = %+v, want %+v", model.Thinking.Levels, expectedLevels)
+	}
+	for i, level := range expectedLevels {
+		if model.Thinking.Levels[i] != level {
+			t.Fatalf("Claude Fable 5.1 thinking levels = %+v, want %+v", model.Thinking.Levels, expectedLevels)
+		}
+	}
+}

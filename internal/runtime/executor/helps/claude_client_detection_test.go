@@ -99,6 +99,38 @@ func TestDetectClaudeCodeRequestAcceptsConfiguredMeasuredBaseline(t *testing.T) 
 	}
 }
 
+func TestDetectClaudeCodeRequestAcceptsMeasuredFable51Client(t *testing.T) {
+	headers := confirmedClaudeCodeHeaders()
+	headers.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli)")
+	headers.Set("X-Stainless-Package-Version", "0.112.1")
+	headers.Set("X-Stainless-Runtime-Version", "v26.3.0")
+	payload := claudeCodeDetectionPayload(validClaudeCodeMetadataUserID)
+
+	if detection := DetectClaudeCodeRequest(headers, payload, false); !detection.Confirmed {
+		t.Fatalf("detection = %#v, want measured Claude 2.1.258 sdk-cli confirmed", detection)
+	}
+
+	for name, mutate := range map[string]func(http.Header){
+		"entrypoint": func(candidate http.Header) {
+			candidate.Set("User-Agent", "claude-cli/2.1.258 (external, cli)")
+		},
+		"package": func(candidate http.Header) {
+			candidate.Set("X-Stainless-Package-Version", "0.112.0")
+		},
+		"runtime": func(candidate http.Header) {
+			candidate.Set("X-Stainless-Runtime-Version", "v26.2.0")
+		},
+	} {
+		t.Run("rejects "+name+" near miss", func(t *testing.T) {
+			candidate := headers.Clone()
+			mutate(candidate)
+			if detection := DetectClaudeCodeRequest(candidate, payload, false); detection.Confirmed {
+				t.Fatalf("detection = %#v, want unmeasured tuple rejected", detection)
+			}
+		})
+	}
+}
+
 func TestDetectClaudeCodeRequestRejectsEachMissingMessageSignal(t *testing.T) {
 	payload := claudeCodeDetectionPayload(validClaudeCodeMetadataUserID)
 	for _, test := range []struct {
