@@ -19,6 +19,11 @@ var forkClaudeNativeSoftwareProfiles = []claudeNativeSoftwareProfile{
 		RuntimeVersion: "v26.3.0",
 		cloakModels:    []string{"claude-fable-5-1"},
 	},
+	{
+		UserAgent:      "claude-cli/2.1.258 (external, sdk-cli, agent-sdk/0.3.245)",
+		PackageVersion: "0.112.1",
+		RuntimeVersion: "v26.3.0",
+	},
 }
 
 func claudeNativeSoftwareProfileForCloakModel(model string) (claudeNativeSoftwareProfile, bool) {

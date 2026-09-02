@@ -101,7 +101,7 @@ func TestDetectClaudeCodeRequestAcceptsConfiguredMeasuredBaseline(t *testing.T) 
 
 func TestDetectClaudeCodeRequestAcceptsMeasuredFable51Client(t *testing.T) {
 	headers := confirmedClaudeCodeHeaders()
-	headers.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli)")
+	headers.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli, agent-sdk/0.3.245)")
 	headers.Set("X-Stainless-Package-Version", "0.112.1")
 	headers.Set("X-Stainless-Runtime-Version", "v26.3.0")
 	payload := claudeCodeDetectionPayload(validClaudeCodeMetadataUserID)
@@ -126,8 +126,11 @@ func TestDetectClaudeCodeRequestAcceptsMeasuredFable51Client(t *testing.T) {
 		{name: "altered runtime", mutate: func(candidate http.Header) {
 			candidate.Set("X-Stainless-Runtime-Version", "v26.2.0")
 		}},
+		{name: "altered Agent SDK", mutate: func(candidate http.Header) {
+			candidate.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli, agent-sdk/0.3.244)")
+		}},
 		{name: "User-Agent whitespace", mutate: func(candidate http.Header) {
-			candidate.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli) ")
+			candidate.Set("User-Agent", "claude-cli/2.1.258 (external, sdk-cli, agent-sdk/0.3.245) ")
 		}},
 		{name: "duplicate package", mutate: func(candidate http.Header) {
 			candidate.Add("X-Stainless-Package-Version", "0.112.1")

@@ -25,7 +25,7 @@ func TestApplyClaudeHeadersPassesMeasuredFable51ProfileWithoutStabilizing(t *tes
 		},
 	}
 	incoming := http.Header{
-		"User-Agent":                  {"claude-cli/2.1.258 (external, sdk-cli)"},
+		"User-Agent":                  {"claude-cli/2.1.258 (external, sdk-cli, agent-sdk/0.3.245)"},
 		"X-Stainless-Package-Version": {"0.112.1"},
 		"X-Stainless-Runtime-Version": {"v26.3.0"},
 		"X-Stainless-Os":              {"MacOS"},
@@ -58,7 +58,7 @@ func TestApplyClaudeHeadersPassesMeasuredFable51ProfileWithoutStabilizing(t *tes
 	if err != nil {
 		t.Fatalf("applyClaudeHeadersWithNativeProfile() error = %v", err)
 	}
-	assertClaudeFingerprint(t, request.Header, "claude-cli/2.1.258 (external, sdk-cli)", "0.112.1", "v26.3.0", "MacOS", "arm64")
+	assertClaudeFingerprint(t, request.Header, "claude-cli/2.1.258 (external, sdk-cli, agent-sdk/0.3.245)", "0.112.1", "v26.3.0", "MacOS", "arm64")
 	if storedCandidates != 0 {
 		t.Fatalf("stored native profile candidates = %d, want 0", storedCandidates)
 	}
